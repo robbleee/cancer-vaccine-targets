@@ -1,0 +1,50 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+.dist/
+build/
+.eggs/
+*.manifest
+*.spec
+
+# ---- Virtual Environments ----
+env/
+.venv/
+venv/
+ENV/
+
+# ---- Jupyter & Test Caches ----
+.ipynb_checkpoints/
+.pytest_cache/
+
+# ---- Logs & Coverage ----
+*.log
+coverage.xml
+*.coverage*
+
+# ---- IDE/Editor Files ----
+.vscode/
+.idea/
+*.swp
+
+# ---- macOS & System Files ----
+.DS_Store
+Thumbs.db
+
+# ---- Streamlit Secrets ----
+.streamlit/secrets.toml
+
+# ---- Environment & Secrets Files ----
+*.env
+.env.*
+
+# ---- Data (large or generated) ----
+data/
+!data/README.md
+
+# ---- Others ----
+*.pkl
+*.h5 
