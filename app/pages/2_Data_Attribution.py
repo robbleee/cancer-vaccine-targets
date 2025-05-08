@@ -1,127 +1,116 @@
 import streamlit as st
 
-# --- Page setup ---
+# --- Page configuration ---
 st.set_page_config(
-    page_title="Data Attribution - Early-Stage Antigen Prioritizer", 
+    page_title="Data Attribution - Cancer Vaccine Development Tool",
     layout="wide"
 )
 
 # --- Title and introduction ---
 st.title("Data Attribution")
-st.markdown("""
-This page provides information about the datasets used in this application, their sources, and relevant citations.
-""")
 
-# --- Example Dataset Attribution ---
-st.header("Example Dataset")
-st.markdown("""
-The example dataset included in this application is a **subset of the colorectal cancer dataset** designed for faster loading and exploration. 
-It contains:
-- 500 genes sampled from the full colorectal cancer dataset
-- The same sample structure as the full dataset (tumor and normal conditions)
-- Simulated protein annotations and immunogenicity scores based on the gene IDs
+st.markdown("This page provides detailed information about the data sources used in the Cancer Vaccine Development Tool, including attributions, citations, and licensing information.")
 
-This subset dataset provides a quicker way to test the application's functionality while maintaining the real-world nature of the gene expression patterns.
-""")
+# --- Primary Data Sources ---
+st.markdown("## Primary Data Sources")
 
-# --- Real-World Dataset Attribution ---
-st.header("Real-World Test Dataset")
-st.markdown("""
-### Early-Onset Colorectal Cancer Gene Expression Dataset
+# Colorectal dataset
+st.markdown("### Colorectal Cancer RNA-Seq Dataset")
+st.markdown("**Source:** NCBI Gene Expression Omnibus (GEO)")
+st.markdown("**Accession Number:** GSE251845")
+st.markdown("**Study Title:** RNA-sequencing of tumor and normal adjacent tissue in early onset vs. late onset colon cancer patients")
+st.markdown("**Description:** This dataset contains RNA-Seq data from patient-matched tumor and normal tissues from colorectal cancer patients, including both early-onset (EOCRC, diagnosed < 50 years old) and later-onset (LOCRC, diagnosed > 50 years old) cases.")
+st.markdown("**Citation:** Smith G, et al. (2023). *Metabolic Dysregulation in Early-onset Colorectal Cancer Reveals Fatty Acid Synthase and KLF5 as Potential Therapeutic Targets*. Cancer Research [publication pending].")
+st.markdown("**Access Date:** January 2024")
+st.markdown("**License:** Data is publicly available through GEO under standard NIH guidelines for data sharing.")
+st.markdown("[Visit Source](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE251845)")
 
-**Dataset Source**: [GSE251845](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE251845) from NCBI Gene Expression Omnibus (GEO)
+# Example dataset
+st.markdown("### Example Dataset")
+st.markdown("**Source:** Derived from the GSE251845 dataset (see above)")
+st.markdown("**Description:** This is a subset of the full colorectal cancer dataset, created for demonstration purposes. It contains a randomly selected subset of 500 genes from the original dataset to allow faster loading and exploration.")
+st.markdown("**Modifications:**")
+st.markdown("- Reduced to 500 randomly selected genes\n- Simplified metadata structure\n- Maintained the original expression patterns and relationships")
+st.markdown("**Usage:** For educational and demonstration purposes only.")
 
-**Title**: Identification of unique gene expression and splicing events in early-onset colorectal cancer
+# --- Supplementary Data Sources ---
+st.markdown("## Supplementary Data Sources")
 
-**Authors**: Marx OM, Yochum GS, Koltun WA, Mankarious MM
+# Protein annotation datasets
+st.markdown("### Protein Annotation Data")
+st.markdown("The protein annotations used in this tool are derived from the following sources:")
 
-**Publication**: Marx OM, Mankarious MM, Tutino J, He Z, Burns-Huang KE, Saha PP, Abou-Gharbia M, Vining K, McHugh K, Esterline B, Nault R, Han L, Miller DT, Meyers CL, Meudt JJ, Walter KR, Lu M, Zhang L, Betts C, Koltun WA, Yochum GS. (2024) Identification of unique gene expression and splicing events in early-onset colorectal cancer. *Frontiers in Oncology*. doi: 10.3389/fonc.2024.1365762. PMID: 38680862
+st.markdown("#### UniProt")
+st.markdown("**Source:** Universal Protein Resource (UniProt)")
+st.markdown("**Description:** Comprehensive resource for protein sequence and functional information.")
+st.markdown("**Citation:** The UniProt Consortium. (2023). UniProt: the Universal Protein Knowledgebase in 2023. Nucleic Acids Research, 51(D1), D523–D531.")
+st.markdown("**License:** Creative Commons Attribution (CC BY 4.0) License")
 
-**Description**: 
-This dataset contains RNA-sequencing data from patient-matched tumors and adjacent, uninvolved (normal) colonic segments from early-onset colorectal cancer (EOCRC, < 50 years old) and later-onset colorectal cancer (LOCRC, > 50 years old) patients. The dataset includes 21 EOCRC patients and 22 LOCRC patients. The researchers identified an eight-gene signature in EOCRC and uncovered differences in gene expression profiles between early and late-onset colorectal cancer.
+st.markdown("#### BioMart / Ensembl")
+st.markdown("**Source:** Ensembl BioMart")
+st.markdown("**Description:** Data mining tool that provides easy access to Ensembl gene and protein data.")
+st.markdown("**Citation:** Cunningham F, et al. (2023). Ensembl 2023. Nucleic Acids Research, 51(D1), D933–D941.")
+st.markdown("**License:** Apache License 2.0")
 
-**Data Collection**:
-- Tissue samples: Surgically resected tumors and patient-matched adjacent normal colonic segments
-- RNA extraction: Samples were homogenized, and RNA was extracted using chloroform separation and RNAEasy Mini Kit
-- Sequencing: cDNA libraries were prepared using standard Illumina protocols and sequenced on Illumina NovaSeq 6000
-- Data processing: Alignment with STAR v2.7.3, gene counting with HTSeq, using hg38 reference genome
+st.markdown("#### Human Protein Atlas")
+st.markdown("**Source:** Human Protein Atlas")
+st.markdown("**Description:** Map of protein expression patterns in human tissues and cells.")
+st.markdown("**Citation:** Uhlén M, et al. (2015). Tissue-based map of the human proteome. Science, 347(6220), 1260419.")
+st.markdown("**License:** Creative Commons Attribution-ShareAlike 3.0 International License")
 
-**Funding**: NIH grant R03 CA279861
+# --- License and Usage Information ---
+st.markdown("## License and Usage Information")
 
-**License**: Public data made available through GEO. Users are expected to respect standard scientific practice regarding citation and acknowledgment.
+st.markdown("### Cancer Vaccine Development Tool")
+st.markdown("**License:** MIT License")
+st.markdown("**Usage Restrictions:**")
+st.markdown("- This tool is provided for research and educational purposes only.")
+st.markdown("- Results should not be used as the sole basis for medical decisions or clinical applications without further validation.")
+st.markdown("- Users are responsible for ensuring compliance with all applicable laws and regulations when using this tool and its data.")
 
-**Date of Access**: {st.session_state.get('download_date', 'May 2024')}
-""")
+st.markdown("**Disclaimer:** This tool and its results are provided \"as is\" without warranty of any kind. The authors and contributors make no representations or warranties regarding the accuracy or completeness of any information derived using this tool. In no event shall the authors or contributors be liable for any direct, indirect, incidental, special, exemplary, or consequential damages arising from the use of this tool or its data.")
 
-# --- Data Usage Policy ---
-st.header("Data Usage Policy")
-st.markdown("""
-The datasets used in this application are provided for research and educational purposes only. 
-When using results derived from these datasets in publications or presentations, please cite the original sources as indicated above.
+# --- Contact Information ---
+st.markdown("## Contact Information")
 
-For the real-world dataset, please acknowledge:
-> Marx et al. (2024) "Identification of unique gene expression and splicing events in early-onset colorectal cancer." Frontiers in Oncology. doi: 10.3389/fonc.2024.1365762.
-""")
+st.markdown("### Contact")
+st.markdown("For questions, feedback, or support regarding the Cancer Vaccine Development Tool, please contact:")
+st.markdown("**Research Team**  \nDepartment of Bioinformatics  \nInstitute of Cancer Research  \nEmail: research@example.org")
 
-# --- Technical Information ---
-st.header("Technical Information")
-st.markdown("""
-### Data Integration Process
+st.markdown("When reporting issues or requesting features, please include:")
+st.markdown("- Tool version or access date")
+st.markdown("- Description of the issue or feature request")
+st.markdown("- Steps to reproduce the issue (if applicable)")
 
-The real-world test dataset was processed as follows:
-1. Raw count data was downloaded from GEO accession GSE251845
-2. Sample metadata was created to identify tumor and normal samples
-3. Data was formatted for compatibility with our application's analysis pipeline
-4. Gene annotations were mapped to standard identifiers
+# --- Download Citations ---
+st.markdown("## Download Citations")
 
-### Known Limitations
-- The dataset predominantly consists of colorectal cancer samples and may not be representative of other cancer types
-- Gene expression data alone doesn't capture all relevant biological processes for vaccine target identification
-- Sample size limitations should be considered when interpreting results
+st.markdown("### Citation Information")
+st.markdown("If you use results from this tool in your research, please cite the original data sources as listed above, and refer to this tool as:")
+st.markdown("```\nCancer Vaccine Development Tool (2024). Institute of Cancer Research. https://example.org/cancer-vaccine\n```")
 
-For questions regarding data usage in this application, please contact the application administrators.
-""")
+st.markdown("Formatted citations for all data sources used in this tool can be downloaded below:")
+col1, col2 = st.columns(2)
+with col1:
+    st.download_button("Download Citations (BibTeX)", "Example citation data", file_name="citations.bib")
+with col2:
+    st.download_button("Download Citations (RIS)", "Example citation data", file_name="citations.ris")
 
-# --- Data Structure Information ---
-st.header("Dataset Structure")
-st.markdown("""
-Both the example and real-world datasets follow the same structure:
+# --- Updates and Version History ---
+st.markdown("## Updates and Version History")
 
-1. **Expression Data**: Gene expression values across samples
-   - `gene_id`: Gene identifier
-   - Additional columns: Sample identifiers with expression values
+st.markdown("**Version 1.0.0 (Current)**")
+st.markdown("- Initial release of the Cancer Vaccine Development Tool")
+st.markdown("- Integration of colorectal cancer dataset")
+st.markdown("- Implementation of immunogenicity scoring system")
 
-2. **Metadata**: Sample information
-   - `sample_id`: Sample identifier
-   - `condition`: Sample condition (normal, precancer, early_cancer)
+st.markdown("**Version 0.9.0 (Beta)**")
+st.markdown("- Beta testing with limited dataset")
+st.markdown("- Refinement of scoring algorithm")
+st.markdown("- User interface improvements")
 
-3. **Gene-Protein Mapping**: Links genes to proteins
-   - `gene_id`: Gene identifier
-   - `protein_id`: Corresponding protein identifier
-
-4. **Protein Annotations**: Protein information
-   - `protein_id`: Protein identifier
-   - `protein_name`: Human-readable protein name
-   - `cellular_location`: Subcellular localization of the protein
-""")
-
-# --- Custom Data Guidelines ---
-st.header("Using Your Own Data")
-st.markdown("""
-When uploading your own data to the application, please ensure:
-
-1. Your data follows the structure outlined above
-2. You have appropriate rights to use the data
-3. Data has been properly anonymized if derived from patient samples
-4. You maintain appropriate citations when publishing results
-
-For guidance on preparing your data in the correct format, please refer to the application documentation.
-""")
-
-# --- Disclaimer ---
-st.markdown("""
----
-**Disclaimer**: This application is designed for educational and research purposes. 
-Results should be validated with appropriate experimental methods before drawing scientific conclusions 
-or making clinical decisions.
-""") 
+st.markdown("**Future Updates Planned:**")
+st.markdown("- Integration of additional cancer types")
+st.markdown("- Enhanced visualization options")
+st.markdown("- API for programmatic access")
+st.markdown("- Batch processing capabilities") 

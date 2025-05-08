@@ -4,12 +4,102 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import os
+
+# --- Custom CSS for Modern UI ---
+def apply_modern_styles():
+    st.markdown("""
+    <style>
+    /* Main container padding and styling */
+    .main .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+    }
+    
+    /* Headers styling */
+    h1, h2, h3 {
+        font-weight: 600 !important;
+        letter-spacing: -0.5px;
+    }
+    h1 {
+        font-size: 2.4rem !important;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid rgba(109, 40, 217, 0.2);
+        margin-bottom: 1.5rem;
+    }
+    h2 {
+        font-size: 1.8rem !important;
+        margin-top: 2rem;
+    }
+    h3 {
+        font-size: 1.4rem !important;
+    }
+    
+    /* Card-like elements */
+    .stAlert, div.stForm, div[data-testid="stExpander"] > div:first-child {
+        border-radius: 10px !important;
+        border: 1px solid rgba(109, 40, 217, 0.2) !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
+    }
+    
+    /* Info and warning boxes */
+    div[data-testid="stInfo"] {
+        background-color: #EDE9FE !important;
+        border-left-color: #6D28D9 !important;
+    }
+    
+    /* Better spacing for metric elements */
+    div[data-testid="stMetric"] {
+        background-color: #EDE9FE;
+        padding: 1rem;
+        border-radius: 8px;
+    }
+    
+    /* Methodology cards */
+    .methodology-card {
+        background-color: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        border: 1px solid #e6e6e6;
+        margin-bottom: 1.5rem;
+    }
+    
+    /* Highlight boxes */
+    .highlight-box {
+        background-color: #EDE9FE;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin: 1rem 0;
+    }
+    
+    /* Equation styling */
+    .equation {
+        background-color: #EDE9FE;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        font-family: monospace;
+        text-align: center;
+        margin: 1rem 0;
+    }
+    
+    /* Reference styling */
+    .reference {
+        font-size: 0.9rem;
+        border-left: 3px solid #6D28D9;
+        padding-left: 1rem;
+        margin: 1rem 0;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 # --- Page configuration ---
 st.set_page_config(
     page_title="Methodology - Early-Stage Antigen Prioritizer",
     layout="wide"
 )
+
+# Apply modern styling
+apply_modern_styles()
 
 # --- Title and introduction ---
 st.title("Calculation Methodology")

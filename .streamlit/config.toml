@@ -1,0 +1,7 @@
+[theme]
+base = "light"
+primaryColor = "#6D28D9"          # Rich purple (darker, more vibrant)
+backgroundColor = "#FFFFFF"       # Clean white
+secondaryBackgroundColor = "#EDE9FE"  # Light purple with better contrast
+textColor = "#2E1065"             # Deep purple text for better readability
+font = "sans serif"               # Modern sans-serif font

@@ -8,6 +8,91 @@ import json
 import random
 import bcrypt # Need to install: pip install bcrypt
 import traceback # For better error reporting during analysis
+import base64
+from datetime import datetime
+
+# --- Custom CSS for Modern UI ---
+def apply_modern_styles():
+    st.markdown("""
+    <style>
+    /* Main container padding and styling */
+    .main .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+    }
+    
+    /* Headers styling */
+    h1, h2, h3 {
+        font-weight: 600 !important;
+        letter-spacing: -0.5px;
+    }
+    h1 {
+        font-size: 2.4rem !important;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid rgba(167, 139, 250, 0.2);
+        margin-bottom: 1.5rem;
+    }
+    h2 {
+        font-size: 1.8rem !important;
+        margin-top: 2rem;
+    }
+    h3 {
+        font-size: 1.4rem !important;
+    }
+    
+    /* Card-like elements */
+    .stAlert, div.stForm, div[data-testid="stExpander"] > div:first-child {
+        border-radius: 10px !important;
+        border: 1px solid rgba(167, 139, 250, 0.2) !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
+    }
+    
+    /* Improved button styling */
+    .stButton button {
+        border-radius: 8px !important;
+        font-weight: 500 !important;
+        transition: all 0.3s ease;
+    }
+    .stButton button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(167, 139, 250, 0.3) !important;
+    }
+    
+    /* Improving form elements */
+    div[data-baseweb="input"] {
+        border-radius: 8px !important;
+    }
+    
+    /* Info and warning boxes */
+    div[data-testid="stInfo"] {
+        background-color: #F5F3FF !important;
+        border-left-color: #A78BFA !important;
+    }
+    
+    /* Sidebar styling */
+    section[data-testid="stSidebar"] .block-container {
+        padding-top: 2rem;
+    }
+    section[data-testid="stSidebar"] h1, 
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3 {
+        padding-left: 1rem;
+    }
+    
+    /* Better spacing for metric elements */
+    div[data-testid="stMetric"] {
+        background-color: #F5F3FF;
+        padding: 1rem;
+        border-radius: 8px;
+    }
+    
+    /* Data tables styling */
+    .stDataFrame {
+        border-radius: 10px !important;
+        overflow: hidden;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 # --- Authentication Logic Definitions ---
 # IMPORTANT: Ensure you have a .streamlit/secrets.toml file
@@ -46,20 +131,31 @@ def verify_user(username, password):
 
 def login_screen():
     """Displays login form and handles authentication."""
-    st.title("Login Required")
-    st.warning("Please log in to access the Antigen Prioritizer Tool.")
-    with st.form("login_form"):
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        submitted = st.form_submit_button("Login")
+    # Apply custom styling
+    apply_modern_styles()
+    
+    # Center the login form
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.title("Login Required")
+        st.markdown("""
+        <div style="text-align: center; margin-bottom: 2rem;">
+            Welcome to the Antigen Prioritizer Tool. Please log in to continue.
+        </div>
+        """, unsafe_allow_html=True)
+        
+        with st.form("login_form"):
+            username = st.text_input("Username")
+            password = st.text_input("Password", type="password")
+            submitted = st.form_submit_button("Login", use_container_width=True)
 
-        if submitted:
-            if verify_user(username, password):
-                st.session_state["authenticated"] = True
-                st.session_state["username"] = username # Store username
-                st.rerun() # Immediately rerun the script
-            else:
-                st.error("Incorrect username or password")
+            if submitted:
+                if verify_user(username, password):
+                    st.session_state["authenticated"] = True
+                    st.session_state["username"] = username # Store username
+                    st.rerun() # Immediately rerun the script
+                else:
+                    st.error("Incorrect username or password")
 
 # --- Path Handling ---
 try:
@@ -80,7 +176,14 @@ except NameError:
     EXAMPLE_DATA_DIR = os.path.join(DATA_DIR, "example")
 
 # --- Page setup ---
-st.set_page_config(page_title="Early-Stage Antigen Prioritizer", layout="wide")
+st.set_page_config(
+    page_title="Early-Stage Antigen Prioritizer", 
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# --- Apply modern styling ---
+apply_modern_styles()
 
 # --- Main App Execution Control (Authentication Check) ---
 # Initialize session state if 'authenticated' doesn't exist
@@ -97,11 +200,24 @@ if not st.session_state["authenticated"]:
 # --- User IS Authenticated: Show Logout & Run Main App ---
 
 # Display logged-in user info and logout button (in the sidebar)
-st.sidebar.success(f"Logged in as: {st.session_state.get('username', 'N/A')}")
-if st.sidebar.button("Logout"):
-    st.session_state["authenticated"] = False
-    st.session_state.pop('username', None) # Clear username
-    st.rerun() # Rerun to go back to the login screen
+with st.sidebar:
+    user_container = st.container()
+    with user_container:
+        st.markdown(f"""
+        <div style="display: flex; align-items: center; padding: 0.5rem; background-color: #F5F3FF; border-radius: 8px; margin-bottom: 1rem;">
+            <div style="width: 30px; height: 30px; border-radius: 50%; background-color: #A78BFA; display: flex; align-items: center; justify-content: center; margin-right: 10px;">
+                <span style="color: white; font-weight: bold;">{st.session_state.get('username', 'N/A')[0].upper()}</span>
+            </div>
+            <div>
+                <div style="font-weight: 500;">Logged in as:</div>
+                <div>{st.session_state.get('username', 'N/A')}</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("Logout", use_container_width=True):
+            st.session_state["authenticated"] = False
+            st.session_state.pop('username', None) # Clear username
+            st.rerun() # Rerun to go back to the login screen
 
 # --- OpenAI API configuration (Runs only if authenticated) ---
 openai_available = False
@@ -183,24 +299,34 @@ def get_ai_review(results_df, case_group, control_group, min_fc, max_p):
     return get_json_from_prompt(prompt)
 
 # --- Title and introduction (Shown only if authenticated) ---
-st.title("Early-Stage Antigen Prioritizer Tool")
+st.title("Early-Stage Antigen Prioritizer")
 st.markdown("""
-This tool helps identify and rank potential protein targets for prophylactic cancer vaccines
-based on gene expression data and predicted immunogenicity features.
-*Disclaimer: This MVP uses simplified analysis and mock data/annotations for demonstration.*
-""")
-st.info("""
-⚠️ **Important**: Information about data sources, attributions, and licensing is available in the
-**Data Attribution** page accessible from the sidebar navigation menu.
-""")
+<div style="background-color: #F5F3FF; padding: 1.5rem; border-radius: 10px; margin-bottom: 2rem;">
+    <h3 style="margin-top: 0; margin-bottom: 0.8rem; color: #4B3F72;">About This Tool</h3>
+    <p>
+    This tool identifies and ranks potential protein targets for prophylactic cancer vaccines
+    based on gene expression data and predicted immunogenicity features.
+    </p>
+    <p style="font-style: italic; font-size: 0.9rem; margin-top: 1rem; opacity: 0.8;">
+    Disclaimer: This MVP uses simplified analysis and mock data/annotations for demonstration.
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
+with st.container():
+    st.info("""
+    ⚠️ **Important**: Information about data sources, attributions, and licensing is available in the
+    **Data Attribution** page accessible from the sidebar navigation menu.
+    """)
 
 # --- Sidebar for inputs (Shown only if authenticated) ---
-st.sidebar.header("Data Input")
-data_option = st.sidebar.radio(
-    "Select data source:",
-    ("Use example data", "Use real-world colorectal cancer dataset", "Upload your own data"),
-    key="data_source_radio"
-)
+with st.sidebar:
+    st.markdown("## Data Input")
+    data_option = st.radio(
+        "Select data source:",
+        ("Use example data", "Use real-world colorectal cancer dataset", "Upload your own data"),
+        key="data_source_radio"
+    )
 
 # --- Data Loading Section (Runs only if authenticated) ---
 # Initialize variables
@@ -663,3 +789,17 @@ elif not case_group or not control_group:
      st.warning("Please select valid Case and Control groups in the sidebar to enable analysis.")
 elif not analyze_button:
      st.info("Configure analysis parameters in the sidebar and click 'Prioritize Targets' to start the analysis.")
+
+# --- HELPER FUNCTIONS ---
+def create_download_link(df, filename, link_text):
+    csv = df.to_csv(index=False)
+    b64 = base64.b64encode(csv.encode()).decode()
+    href = f'<a href="data:file/csv;base64,{b64}" download="{filename}">{link_text}</a>'
+    return href
+
+# Add footer
+st.markdown("""
+<footer>
+    <p style="text-align: center; font-size: 0.8rem;">Cancer Vaccine Development Tool | Data accessed on: {0}</p>
+</footer>
+""".format(st.session_state.download_date), unsafe_allow_html=True)
