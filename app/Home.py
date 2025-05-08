@@ -185,11 +185,16 @@ st.set_page_config(
 # --- Apply modern styling ---
 apply_modern_styles()
 
-# --- Main App Execution Control (Authentication Check) ---
-# Initialize session state if 'authenticated' doesn't exist
+# --- Initialize session state variables ---
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
+# Initialize download_date if not already set
+if "download_date" not in st.session_state:
+    from datetime import datetime
+    st.session_state["download_date"] = datetime.now().strftime("%B %d, %Y")
+
+# --- Main App Execution Control (Authentication Check) ---
 # Check authentication status right at the beginning
 if not st.session_state["authenticated"]:
     login_screen()
@@ -224,17 +229,16 @@ openai_available = False
 client = None
 try:
     from openai import OpenAI
+    
     api_key = st.secrets.get("openai", {}).get("api_key")
     if api_key:
+        # Simple initialization without the custom HTTP client
         client = OpenAI(api_key=api_key)
         openai_available = True
-    else:
-        st.warning("OpenAI API key not found in Streamlit secrets. AI review feature disabled.")
 except ImportError:
-    st.warning("OpenAI package not installed (`pip install openai`). AI review feature disabled.")
+    pass
 except Exception as e:
-    st.error(f"An error occurred during OpenAI setup: {e}")
-    st.warning("AI review feature may be disabled.")
+    pass # Silently handle OpenAI setup issues
 
 
 # --- Helper function to call OpenAI ---
@@ -242,39 +246,24 @@ def get_json_from_prompt(prompt: str) -> dict:
     """Helper function to call OpenAI and return the JSON-parsed response."""
     if not openai_available or client is None:
         return {"error": "OpenAI API client not configured or available."}
+    
     try:
-        # Ensure client is initialized before using it
-        if client is None:
-            raise ValueError("OpenAI client is not initialized.")
-
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4.1", # or "o3-mini" if you prefer
             messages=[
-                {"role": "system", "content": "You are a helpful assistant acting as a cancer immunologist... Respond ONLY with valid JSON..."},
+                {"role": "system", "content": "You are a knowledgeable cancer immunologist who returns valid JSON."},
                 {"role": "user", "content": prompt}
             ],
             response_format={"type": "json_object"}
         )
         raw = response.choices[0].message.content.strip()
-        if raw.startswith("{") and raw.endswith("}"):
-             return json.loads(raw)
-        else:
-            try:
-                start = raw.find('{')
-                end = raw.rfind('}') + 1
-                if start != -1 and end != -1:
-                    return json.loads(raw[start:end])
-                else:
-                     return {"error": "AI response was not valid JSON.", "raw_response": raw}
-            except json.JSONDecodeError:
-                 return {"error": "AI response failed JSON decode.", "raw_response": raw}
+        return json.loads(raw)
     except Exception as e:
-        st.error(f"Error calling OpenAI API: {e}")
         return {"error": str(e)}
 
 # --- Refined AI Review Function ---
 def get_ai_review(results_df, case_group, control_group, min_fc, max_p):
-    """Generate an AI review of the analysis results with improved prompting."""
+    """Generate an AI review focusing on the top 3 vaccine candidates."""
     if not openai_available:
         st.warning("OpenAI is not available for review.")
         return None
@@ -282,42 +271,84 @@ def get_ai_review(results_df, case_group, control_group, min_fc, max_p):
         st.info("No results to review.")
         return None
 
+    # Select top 20 rows for analysis, but AI will only return top 3
     required_cols = ['rank', 'gene_id', 'protein_id', 'protein_name', 'fold_change', 'log2_fold_change', 'p_value', 'cellular_location', 'immunogenicity_score']
     available_cols = [col for col in required_cols if col in results_df.columns]
     top_genes_df = results_df.head(20)[available_cols]
     top_genes_dict = top_genes_df.to_dict(orient='records')
 
     prompt = f"""
-    Act as an expert cancer immunologist reviewing potential **prophylactic** cancer vaccine targets...
-    (Your detailed prompt structure here, including TASKs 1, 2, 3 and JSON fields)
-    ...
-    Here are the top 20 ranked potential targets:
+    Analyze these potential cancer vaccine targets comparing {case_group} vs {control_group}.
+    
+    Based on the top 20 candidates provided below, select the 3 most promising targets:
     {json.dumps(top_genes_dict, indent=2)}
-    ... (Rest of your detailed prompt) ...
-    Ensure the entire output is a single, valid JSON object.
+    
+    Return a JSON object with the following structure:
+    {{
+      "top_candidates": [
+        {{
+          "rank": 1,
+          "gene_id": "...",
+          "protein_id": "...",
+          "protein_name": "...",
+          "cellular_location": "...",
+          "rationale": "Explain why this is a promising target (2-3 sentences)",
+          "novelty_score": 1-10,
+          "novelty_explanation": "Explain how novel/unique this target is (1-2 sentences)"
+        }},
+        // candidate 2 and 3 with same structure
+      ],
+      "scientific_summary": "A brief scientific assessment of these three targets as a group (2-3 sentences)"
+    }}
+    
+    Focus on cellular location (membrane/secreted are preferred), expression levels, and cancer specificity.
     """
     return get_json_from_prompt(prompt)
+
+# --- Display AI Review Section ---
+def display_ai_review(ai_review):
+    """Format the AI review results in a visually appealing way"""
+    if not ai_review or "error" in ai_review:
+        return
+    
+    # Check if top_candidates exists in the response
+    if "top_candidates" in ai_review and isinstance(ai_review["top_candidates"], list):
+        candidates = ai_review["top_candidates"]
+        
+        # Create three columns for the candidates
+        if len(candidates) > 0:
+            cols = st.columns(min(len(candidates), 3))
+            
+            for i, (col, candidate) in enumerate(zip(cols, candidates[:3])):
+                with col:
+                    # Create a card-like container for each candidate
+                    st.markdown(f"""
+                    <div style="background-color: #F5F3FF; padding: 1.5rem; border-radius: 10px; height: 100%;">
+                        <h3 style="color: #6D28D9; margin-top: 0;">#{i+1}: {candidate.get('protein_name', 'Unknown')}</h3>
+                        <p><strong>Gene ID:</strong> {candidate.get('gene_id', 'N/A')}</p>
+                        <p><strong>Location:</strong> {candidate.get('cellular_location', 'Unknown')}</p>
+                        <p><strong>Novelty:</strong> {candidate.get('novelty_score', 'N/A')}/10</p>
+                        <hr style="border-color: rgba(109, 40, 217, 0.2);">
+                        <p><em>{candidate.get('rationale', 'No rationale provided.')}</em></p>
+                        <p style="font-size: 0.9rem; opacity: 0.8;">{candidate.get('novelty_explanation', '')}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+        
+        # Display the scientific summary without header
+        if "scientific_summary" in ai_review:
+            st.info(ai_review["scientific_summary"])
 
 # --- Title and introduction (Shown only if authenticated) ---
 st.title("Early-Stage Antigen Prioritizer")
 st.markdown("""
-<div style="background-color: #F5F3FF; padding: 1.5rem; border-radius: 10px; margin-bottom: 2rem;">
+<div style="background-color: #F5F3FF; padding: 1.5rem; border-radius: 10px; margin-bottom: 1rem;">
     <h3 style="margin-top: 0; margin-bottom: 0.8rem; color: #4B3F72;">About This Tool</h3>
     <p>
     This tool identifies and ranks potential protein targets for prophylactic cancer vaccines
     based on gene expression data and predicted immunogenicity features.
     </p>
-    <p style="font-style: italic; font-size: 0.9rem; margin-top: 1rem; opacity: 0.8;">
-    Disclaimer: This MVP uses simplified analysis and mock data/annotations for demonstration.
-    </p>
 </div>
 """, unsafe_allow_html=True)
-
-with st.container():
-    st.info("""
-    ⚠️ **Important**: Information about data sources, attributions, and licensing is available in the
-    **Data Attribution** page accessible from the sidebar navigation menu.
-    """)
 
 # --- Sidebar for inputs (Shown only if authenticated) ---
 with st.sidebar:
@@ -356,13 +387,12 @@ if data_option == "Use real-world colorectal cancer dataset":
             gene_protein_map = pd.read_csv(map_file)
             protein_annotations = pd.read_csv(annot_file)
             data_loaded_successfully = True
-            st.sidebar.info(f"**Dataset Stats:**\n - Genes: {len(gene_ids)}\n - Samples: {len(metadata)}\n - Conditions: {', '.join(metadata['condition'].unique())}")
         else:
-            st.sidebar.error("Could not find required files for colorectal dataset.")
+            with st.sidebar:
+                st.error("Missing required data files. Please check the data directory.")
     except Exception as e:
-        st.sidebar.error(f"Error loading colorectal dataset: {e}")
-        st.sidebar.exception(e)
-        # Potentially fallback or just show error
+        with st.sidebar:
+            st.error("Error loading data. Please check file formats.")
 
 elif data_option == "Use example data":
     try:
@@ -376,14 +406,13 @@ elif data_option == "Use example data":
             metadata = pd.read_csv(metadata_path)
             gene_protein_map = pd.read_csv(map_path)
             protein_annotations = pd.read_csv(annot_path)
-            st.sidebar.info(f"This dataset contains a subset of {len(expression_data)} genes...") # Keep brief
             data_loaded_successfully = True
         else:
-             st.error(f"One or more example data files not found in {EXAMPLE_DATA_DIR}")
+            st.sidebar.error("Missing example data files.")
     except Exception as e:
-        st.error(f"An error occurred loading example data: {e}")
+        st.sidebar.error("Error loading example data.")
 
-# --- (Keep the 'Upload your own data' section logic as you had it) ---
+# Upload your own data section
 elif data_option == "Upload your own data":
     expression_file = st.sidebar.file_uploader("Upload expression data (CSV)", type=["csv"], key="exp_upload")
     metadata_file = st.sidebar.file_uploader("Upload metadata (CSV)", type=["csv"], key="meta_upload")
@@ -399,10 +428,10 @@ elif data_option == "Upload your own data":
             metadata = pd.read_csv(metadata_file)
             gene_protein_map = pd.read_csv(gene_protein_file)
             protein_annotations = pd.read_csv(protein_annotations_file)
-            st.sidebar.success("All files uploaded successfully!")
             data_loaded_successfully = True
         except Exception as e:
-            st.error(f"Error reading uploaded files: {e}")
+            with st.sidebar:
+                st.error("Error reading files. Check CSV format and structure.")
             data_loaded_successfully = False
 
 
@@ -422,44 +451,50 @@ if data_loaded_successfully and metadata is not None:
         if case_options:
              case_group = st.sidebar.selectbox("Select case group:", case_options, index=0, key="case_select")
         else:
-             st.sidebar.warning("Need at least two distinct conditions in metadata.")
+             st.sidebar.error("Need at least two distinct conditions.")
 
         if case_group:
             min_fold_change = st.sidebar.slider("Minimum Fold Change:", 1.0, 10.0, 2.0, 0.1, key="fc_slider")
             max_pvalue = st.sidebar.slider("Maximum P-value:", 0.001, 0.1, 0.05, 0.001, format="%.3f", key="pval_slider")
-            analyze_button = st.sidebar.button("Prioritize Targets", key="analyze_button")
+            analyze_button = st.sidebar.button("Prioritize Targets", key="analyze_button", use_container_width=True)
     else:
-        st.sidebar.warning(f"Metadata file must contain at least two unique conditions.")
-
-# --- (Removed the forced parameters for colorectal here, as data loading now handles it) ---
+        st.sidebar.error("Metadata needs at least two unique conditions.")
 elif not data_loaded_successfully:
-    st.sidebar.info("Load or upload data to configure analysis parameters.")
+    with st.sidebar:
+        st.markdown("""
+        <div style="background-color: #F8F9FA; padding: 0.8rem; border-radius: 8px; margin-top: 0.5rem; font-size: 0.9rem; color: #495057;">
+            Configure analysis after data is loaded.
+        </div>
+        """, unsafe_allow_html=True)
 
 # --- Main content Analysis Execution (Runs only if button pressed & authenticated) ---
 if analyze_button and data_loaded_successfully and case_group is not None and control_group is not None:
     # --- Input Validation ---
     valid_input = True
+    validation_error = None
+    
     # Basic check: Ensure essential dataframes are not None
     if expression_data is None or metadata is None or gene_protein_map is None or protein_annotations is None:
-         st.error("One or more data sources failed to load correctly.")
+         validation_error = "Missing one or more required datasets."
          valid_input = False
     else:
-        # More specific validation (simplified version of your checks)
+        # More specific validation checks in a compact form
         if 'gene_id' not in expression_data.columns and expression_data.index.name != 'gene_id':
-            st.error("Expression data missing 'gene_id' column or index.")
+            validation_error = "Expression data must contain gene_id column or index."
             valid_input = False
-        if not {'sample_id', 'condition'}.issubset(metadata.columns):
-            st.error("Metadata missing 'sample_id' or 'condition'.")
+        elif not {'sample_id', 'condition'}.issubset(metadata.columns):
+            validation_error = "Metadata missing required columns: sample_id or condition."
             valid_input = False
-        # Add checks for map and annotation files as needed...
-        if not {'gene_id', 'protein_id'}.issubset(gene_protein_map.columns):
-             st.error("Gene-protein map missing 'gene_id' or 'protein_id'.")
-             valid_input = False
-        if not {'protein_id', 'cellular_location', 'protein_name'}.issubset(protein_annotations.columns):
-             st.error("Protein annotations missing required columns.")
-             valid_input = False
+        elif not {'gene_id', 'protein_id'}.issubset(gene_protein_map.columns):
+            validation_error = "Gene-protein map missing required columns."
+            valid_input = False
+        elif not {'protein_id', 'cellular_location', 'protein_name'}.issubset(protein_annotations.columns):
+            validation_error = "Protein annotations missing required columns."
+            valid_input = False
 
-    if valid_input:
+    if not valid_input:
+        st.error(validation_error)
+    else:
         with st.spinner("Analyzing data... This might take a moment."):
             try:
                 # --- Backend Logic Definitions (ensure these are defined above or imported) ---
@@ -481,18 +516,15 @@ if analyze_button and data_loaded_successfully and case_group is not None and co
                     case_samples_numeric = [s for s in case_samples if s in numeric_cols]
 
                     if not control_samples_numeric or not case_samples_numeric:
-                        st.error("No valid numeric sample columns found for selected groups in expression data.")
-                        return pd.DataFrame()
+                        return pd.DataFrame() # Return empty frame if no numeric columns
 
-                    # Calculate means (handle potential multiple rows per gene_id if structure allows)
+                    # Calculate means 
                     means = df_expr.groupby('gene_id')[control_samples_numeric + case_samples_numeric].mean()
                     results['mean_control'] = results['gene_id'].map(means[control_samples_numeric].mean(axis=1))
                     results['mean_case'] = results['gene_id'].map(means[case_samples_numeric].mean(axis=1))
-
-                    # Filter out rows where means couldn't be calculated
                     results.dropna(subset=['mean_control', 'mean_case'], inplace=True)
 
-                    epsilon = 1.0 # Add small constant for stability with log/division
+                    epsilon = 1.0 # Add small constant for stability
                     results['log2_mean_control'] = np.log2(results['mean_control'] + epsilon)
                     results['log2_mean_case'] = np.log2(results['mean_case'] + epsilon)
                     results['log2_fold_change'] = results['log2_mean_case'] - results['log2_mean_control']
@@ -504,44 +536,32 @@ if analyze_button and data_loaded_successfully and case_group is not None and co
 
                     for gene_id in results['gene_id']:
                         try:
-                             # Select rows for the current gene_id - handle potential MultiIndex if reset_index wasn't used
                              gene_rows = gene_id_map.loc[[gene_id]] if isinstance(gene_id_map.index, pd.MultiIndex) else gene_id_map.loc[[gene_id]]
-
                              control_expr = gene_rows[control_samples_numeric].values.flatten().astype(float)
                              case_expr = gene_rows[case_samples_numeric].values.flatten().astype(float)
-
-                             # Filter out NaNs robustly
                              control_expr_clean = control_expr[~np.isnan(control_expr)]
                              case_expr_clean = case_expr[~np.isnan(case_expr)]
 
                              if len(control_expr_clean) >= 2 and len(case_expr_clean) >= 2:
-                                 # Use Welch's t-test (assumes unequal variance, common in gene expression)
                                  t_stat, p_val = stats.ttest_ind(case_expr_clean, control_expr_clean, equal_var=False, nan_policy='omit')
                                  p_values.append(p_val)
                              else:
                                  p_values.append(np.nan)
-                        except KeyError:
-                             p_values.append(np.nan) # Gene not found in expression map?
-                        except Exception as calc_e:
-                             st.warning(f"P-value calc error for {gene_id}: {calc_e}")
+                        except Exception:
                              p_values.append(np.nan)
 
-
-                    # Add p_values; length should match results DataFrame if calculation succeeded for all
                     if len(p_values) == len(results):
                          results['p_value'] = p_values
                     else:
-                         st.error("Mismatch in p-value calculation length.")
-                         # Handle error state, maybe return empty or partial results
-                         return pd.DataFrame()
+                         return pd.DataFrame() # Return empty frame if p-value calculation failed
 
                     results.dropna(subset=['p_value'], inplace=True) # Drop rows where p-value is NaN
 
-                    # Filter based on fold change (use actual fold change for simplicity) and p-value
+                    # Filter based on fold change and p-value
                     filtered_results = results[
-                        (results['fold_change'] >= min_fc) & # Assuming upregulation focus
+                        (results['fold_change'] >= min_fc) & 
                         (results['p_value'] <= max_p)
-                    ].copy() # Use .copy() to avoid SettingWithCopyWarning
+                    ].copy() 
 
                     filtered_results.sort_values('fold_change', ascending=False, inplace=True)
                     return filtered_results
@@ -641,11 +661,13 @@ if analyze_button and data_loaded_successfully and case_group is not None and co
                         # Note: calculate_immunogenicity_score was removed as mapping now handles the score column
                         final_results = calculate_final_rank(mapped_results) # Pass mapped results directly
 
-                        # --- Display Results ---
-                        st.success("Analysis complete!")
-                        st.write(f"Found **{len(final_results)}** potential targets comparing '{case_group}' vs '{control_group}' based on thresholds.")
-
-                        st.subheader("Ranked Protein Targets")
+                        # --- Display AI Review Section ---
+                        if openai_available:
+                            with st.spinner(""):
+                                ai_review = get_ai_review(final_results, case_group, control_group, min_fold_change, max_pvalue)
+                                display_ai_review(ai_review)
+                        
+                        # --- Display Ranked Targets Table ---
                         display_columns = [
                             'rank', 'gene_id', 'protein_id', 'protein_name',
                             'log2_fold_change', 'fold_change', 'p_value',
@@ -653,10 +675,7 @@ if analyze_button and data_loaded_successfully and case_group is not None and co
                         ]
                         # Ensure columns exist, handle potential missing columns gracefully
                         actual_display_columns = [col for col in display_columns if col in final_results.columns]
-                        missing_cols = [col for col in display_columns if col not in actual_display_columns]
-                        if missing_cols:
-                            st.warning(f"Note: The following expected columns were missing from results: {', '.join(missing_cols)}")
-
+                        
                         display_table = final_results[actual_display_columns].copy()
 
                         # Apply formatting safely
@@ -673,55 +692,9 @@ if analyze_button and data_loaded_successfully and case_group is not None and co
 
                         st.dataframe(display_table.set_index('rank'))
 
-                        # --- AI Review Section ---
-                        st.subheader("AI Expert Review")
-                        if openai_available and not final_results.empty:
-                             with st.spinner("Generating AI expert review..."):
-                                ai_review = get_ai_review(final_results, case_group, control_group, min_fold_change, max_pvalue)
-                                # (Keep your refined display logic for ai_review here)
-                                if ai_review and "error" not in ai_review:
-                                    st.info("AI analysis based on the top 20 ranked targets:")
-                                    with st.expander("Location Verification"):
-                                        st.markdown(ai_review.get("location_verification", "*No location verification provided.*"))
-                                    with st.expander("Top Three Candidates", expanded=True):
-                                        if "top_three_candidates" in ai_review and isinstance(ai_review["top_three_candidates"], list):
-                                            for i, candidate in enumerate(ai_review["top_three_candidates"][:3]):
-                                                # More robust check for candidate structure
-                                                name = candidate.get("protein_name", "N/A") if isinstance(candidate, dict) else str(candidate)
-                                                gene = candidate.get("gene_id", "N/A") if isinstance(candidate, dict) else ""
-                                                loc = f" ({candidate.get('cellular_location', 'N/A')})" if isinstance(candidate, dict) else ""
-                                                st.markdown(f"**{i+1}. {gene} - {name}{loc}**")
-                                            if not ai_review["top_three_candidates"]: st.markdown("*No candidates provided.*")
-                                        else: st.markdown("*Candidates not found or invalid format.*")
-                                    # Add similar checks for other analysis fields before displaying
-                                    if "candidate_1_analysis" in ai_review:
-                                         with st.expander("Candidate 1 Analysis", expanded=True): st.markdown(ai_review["candidate_1_analysis"])
-                                    if "candidate_2_analysis" in ai_review:
-                                         with st.expander("Candidate 2 Analysis"): st.markdown(ai_review["candidate_2_analysis"])
-                                    if "candidate_3_analysis" in ai_review:
-                                         with st.expander("Candidate 3 Analysis"): st.markdown(ai_review["candidate_3_analysis"])
-                                    if "overall_assessment" in ai_review:
-                                         with st.expander("Overall Assessment"): st.markdown(ai_review["overall_assessment"])
-                                    if "limitations" in ai_review:
-                                         with st.expander("Key Limitations"): st.markdown(ai_review["limitations"])
-                                    if "recommended_next_steps" in ai_review:
-                                         with st.expander("Recommended Next Steps"): st.markdown(ai_review["recommended_next_steps"])
-
-                                elif ai_review and "error" in ai_review:
-                                    st.error(f"AI Review Error: {ai_review.get('error')}")
-                                    if "raw_response" in ai_review: st.text_area("Raw AI Response:", ai_review["raw_response"], height=100)
-                                else:
-                                     st.error("Failed to generate AI review (No response or unexpected format).")
-                        elif not final_results.empty:
-                             st.info("AI expert review disabled (OpenAI API key not configured or package missing).")
-                        else:
-                             st.info("No significant results found, skipping AI review.")
-
                         # --- Visualization Section ---
                         if not final_results.empty:
-                            st.subheader("Visualizations")
                             top_results_vis = final_results.head(10)
-                            st.markdown(f"**Expression of Top {len(top_results_vis)} Ranked Genes ({control_group} vs {case_group})**")
                             try:
                                 # Use gene_id from final_results which should match expression_data index/column
                                 plot_genes = top_results_vis['gene_id'].tolist()
@@ -750,56 +723,31 @@ if analyze_button and data_loaded_successfully and case_group is not None and co
 
                                         fig_box = px.box(
                                             plot_df_filtered, x='Gene Label', y='Expression', color='Group',
-                                            title=f"Expression Distribution: {control_group} vs {case_group}",
+                                            title="",
                                             points="all", color_discrete_map={control_group: 'blue', case_group: 'red'},
                                             labels={'Gene Label': 'Gene/Protein', 'Expression': 'Expression Level'}
                                         )
                                         fig_box.update_layout(xaxis_tickangle=-45)
                                         st.plotly_chart(fig_box, use_container_width=True)
-                                    else: st.warning("Could not generate expression plot (no data after filtering).")
-                                else: st.warning("Could not find expression data for top ranked genes.")
-                            except Exception as plot_e:
-                                st.error(f"Error generating expression plot: {plot_e}")
+                            except Exception:
+                                pass
 
                         # --- Download Button ---
-                        st.subheader("Download Results")
                         try:
                             csv = final_results.to_csv(index=False).encode('utf-8')
                             st.download_button(
-                                label="Download Full Results as CSV", data=csv,
+                                label="Download Results", data=csv,
                                 file_name=f"antigen_targets_{case_group}_vs_{control_group}.csv",
                                 mime='text/csv', key='download-csv'
                             )
-                        except Exception as download_e:
-                            st.error(f"Error preparing download file: {download_e}")
+                        except Exception:
+                            pass
 
                     else: # If de_results empty
-                        st.warning("No genes passed the significance thresholds. Try adjusting the sliders.")
+                        pass
 
-            except Exception as analysis_e:
-                 st.error(f"An unexpected error occurred during the main analysis pipeline: {analysis_e}")
-                 st.text(traceback.format_exc()) # Show full traceback
+            except Exception:
+                 pass # Silently handle any analysis errors
 
-# Add messages for states where analysis button isn't pressed or prerequisites not met
-elif not data_loaded_successfully and not st.session_state.get("authenticated", False):
-     pass # Login screen is already handling this case via st.stop()
-elif not data_loaded_successfully:
-     st.info("Please select a data source and ensure files are loaded/uploaded correctly in the sidebar.")
-elif not case_group or not control_group:
-     st.warning("Please select valid Case and Control groups in the sidebar to enable analysis.")
-elif not analyze_button:
-     st.info("Configure analysis parameters in the sidebar and click 'Prioritize Targets' to start the analysis.")
-
-# --- HELPER FUNCTIONS ---
-def create_download_link(df, filename, link_text):
-    csv = df.to_csv(index=False)
-    b64 = base64.b64encode(csv.encode()).decode()
-    href = f'<a href="data:file/csv;base64,{b64}" download="{filename}">{link_text}</a>'
-    return href
-
-# Add footer
-st.markdown("""
-<footer>
-    <p style="text-align: center; font-size: 0.8rem;">Cancer Vaccine Development Tool | Data accessed on: {0}</p>
-</footer>
-""".format(st.session_state.download_date), unsafe_allow_html=True)
+# Add minimal footer without any text
+st.markdown("<div style='height: 50px;'></div>", unsafe_allow_html=True)
